@@ -241,10 +241,10 @@ class EvolutionClient:
                         return
         except Exception:
             pass
-        # v2.2.3+ uses 'name', older versions use 'instanceName' — try both
+        # Try instanceName first (standard), then name (v2.2.3+)
         for payload in [
-            {'name': instance, 'integration': 'WHATSAPP-BAILEYS'},
             {'instanceName': instance, 'integration': 'WHATSAPP-BAILEYS'},
+            {'name': instance, 'integration': 'WHATSAPP-BAILEYS'},
         ]:
             try:
                 r = requests.post(

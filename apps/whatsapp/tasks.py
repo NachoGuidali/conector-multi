@@ -80,7 +80,7 @@ def process_incoming_message(self, message_data: dict):
         except Exception:
             pass
 
-        contact_name = (contacto.nombre if contacto else None) or message_data.get('contact_name', '')
+        contact_name = (contacto.nombre if contacto else None) or message_data.get('contact_name') or ''
 
         conv, created = Conversacion.objects.get_or_create(
             numero=numero,

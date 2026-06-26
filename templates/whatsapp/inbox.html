@@ -722,7 +722,7 @@
     {% else %}
     <div class="info-section">
       <div class="info-label">Agente</div>
-      <div class="info-value">{{ selected_conv.agente.get_full_name|default:selected_conv.agente.username|default:"Sin asignar" }}</div>
+      <div class="info-value">{% if selected_conv.agente %}{{ selected_conv.agente.get_full_name|default:selected_conv.agente.username }}{% else %}Sin asignar{% endif %}</div>
     </div>
     {% endif %}
 
