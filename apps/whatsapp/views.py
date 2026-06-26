@@ -285,9 +285,14 @@ class DashboardSupervisorView(LoginRequiredMixin, View):
             .order_by('-en_turno', 'username')
         )
 
-        sin_asignar = Conversacion.objects.filter(
-            agente__isnull=True, archivada=False, **conv_filter
-        ).order_by('-ultimo_mensaje_at').select_related('numero')[:20]
+        # Filtro "sin agente"
+        solo_sin_agente = request.GET.get('sin_agente') == '1'
+        todas_filter = {'archivada': False, **conv_filter}
+        if solo_sin_agente:
+            todas_filter['agente__isnull'] = True
+        todas_convs = Conversacion.objects.filter(
+            **todas_filter
+        ).order_by('-ultimo_mensaje_at').select_related('contacto', 'numero', 'agente')[:100]
 
         agente_pk = request.GET.get('agente')
         convs_agente = []
@@ -303,7 +308,8 @@ class DashboardSupervisorView(LoginRequiredMixin, View):
 
         return render(request, self.template_name, {
             'agentes': agentes,
-            'sin_asignar': sin_asignar,
+            'todas_convs': todas_convs,
+            'solo_sin_agente': solo_sin_agente,
             'agente_sel': agente_sel,
             'convs_agente': convs_agente,
             'todos_agentes': User.objects.filter(rol=User.ROL_AGENTE, is_active=True).order_by('username'),

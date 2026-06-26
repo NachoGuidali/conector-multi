@@ -108,7 +108,7 @@
   }
   select.inline-select:focus { border-color:var(--green); }
 
-  .num-tabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:20px; }
+  .num-tabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px; }
   .num-tab {
     padding:5px 14px; border-radius:20px; font-size:12px; font-weight:600;
     border:1px solid var(--border); background:var(--bg2);
@@ -119,6 +119,22 @@
   .num-chip {
     font-size:10px; padding:1px 7px; border-radius:8px;
     background:var(--bg4); color:var(--text3); font-weight:600; flex-shrink:0;
+  }
+  .filter-row { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:20px; }
+  .filter-btn {
+    padding:4px 12px; border-radius:6px; font-size:11px; font-weight:600;
+    border:1px solid var(--border); background:var(--bg2);
+    color:var(--text2); text-decoration:none; transition:all .15s;
+  }
+  .filter-btn:hover { border-color:var(--green); color:var(--green); }
+  .filter-btn.active { background:#450a0a; color:#fca5a5; border-color:#7f1d1d; }
+  .agente-chip {
+    font-size:10px; padding:1px 7px; border-radius:8px;
+    background:#0a2215; color:var(--green); font-weight:600; flex-shrink:0;
+  }
+  .sin-agente-chip {
+    font-size:10px; padding:1px 7px; border-radius:8px;
+    background:#450a0a; color:#fca5a5; font-weight:600; flex-shrink:0;
   }
 </style>
 {% endblock %}
@@ -131,15 +147,19 @@
 
   {% if numeros|length > 1 %}
   <div class="num-tabs">
-    <a href="?" class="num-tab {% if not numero_sel %}active{% endif %}">Todos</a>
+    <a href="?{% if solo_sin_agente %}sin_agente=1{% endif %}" class="num-tab {% if not numero_sel %}active{% endif %}">Todos</a>
     {% for n in numeros %}
-    <a href="?{% if agente_sel %}agente={{ agente_sel.pk }}&{% endif %}numero={{ n.pk }}"
+    <a href="?{% if agente_sel %}agente={{ agente_sel.pk }}&{% endif %}numero={{ n.pk }}{% if solo_sin_agente %}&sin_agente=1{% endif %}"
        class="num-tab {% if numero_sel.pk == n.pk %}active{% endif %}">
       {{ n.nombre }}
     </a>
     {% endfor %}
   </div>
   {% endif %}
+  <div class="filter-row">
+    <a href="?{% if numero_sel %}numero={{ numero_sel.pk }}{% endif %}" class="filter-btn {% if not solo_sin_agente %}active{% endif %}">Todas las conversaciones</a>
+    <a href="?{% if numero_sel %}numero={{ numero_sel.pk }}&{% endif %}sin_agente=1" class="filter-btn {% if solo_sin_agente %}active{% endif %}">Sin agente</a>
+  </div>
 
   {% if messages %}
   {% for m in messages %}
@@ -251,28 +271,42 @@
   </div>
   {% endif %}
 
-  <!-- Sin asignar -->
-  {% if sin_asignar %}
+  <!-- Todas las conversaciones -->
   <div class="section">
     <div class="section-h">
-      <span>Sin agente asignado</span>
-      <span class="badge-red">{{ sin_asignar|length }}</span>
+      <span>{% if solo_sin_agente %}Sin agente asignado{% else %}Todas las conversaciones{% endif %}</span>
+      <span class="badge-red">{{ todas_convs|length }}</span>
     </div>
-    {% for conv in sin_asignar %}
+    {% for conv in todas_convs %}
     <div class="conv-row">
       <div style="flex:1; min-width:0;">
         <div class="conv-name">{{ conv.get_display_name }}</div>
         <div class="conv-tel">{{ conv.telefono }}</div>
       </div>
       {% if not numero_sel %}<span class="num-chip">{{ conv.numero.nombre }}</span>{% endif %}
+      {% if conv.agente %}
+      <span class="agente-chip">{{ conv.agente.get_full_name|default:conv.agente.username }}</span>
+      {% else %}
+      <span class="sin-agente-chip">Sin agente</span>
+      {% endif %}
+      {% if conv.bot_n8n_activo %}
+      <span class="estado-chip chip-bot">🤖 Bot</span>
+      {% elif conv.estado == 'pendiente' %}
+      <span class="estado-chip chip-pendiente">Listo</span>
+      {% elif conv.estado == 'abierta' %}
+      <span class="estado-chip chip-abierta">Abierta</span>
+      {% endif %}
       {% if conv.ultimo_mensaje_at %}
       <span class="conv-time">{{ conv.ultimo_mensaje_at|date:"d/m H:i" }}</span>
       {% endif %}
       <a href="{% url 'whatsapp:inbox' %}?conv={{ conv.pk }}&numero={{ conv.numero.pk }}" class="conv-link" target="_blank">Ver →</a>
     </div>
+    {% empty %}
+    <div style="padding:24px 20px; text-align:center; color:var(--text3); font-size:13px;">
+      No hay conversaciones activas.
+    </div>
     {% endfor %}
   </div>
-  {% endif %}
 
 </div>
 {% endblock %}
