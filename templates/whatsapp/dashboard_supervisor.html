@@ -107,6 +107,19 @@
     padding:6px 10px; color:var(--text); font-size:12px; font-family:inherit; outline:none;
   }
   select.inline-select:focus { border-color:var(--green); }
+
+  .num-tabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:20px; }
+  .num-tab {
+    padding:5px 14px; border-radius:20px; font-size:12px; font-weight:600;
+    border:1px solid var(--border); background:var(--bg2);
+    color:var(--text2); text-decoration:none; transition:all .15s;
+  }
+  .num-tab:hover { border-color:var(--green); color:var(--green); }
+  .num-tab.active { background:var(--green); color:#000; border-color:var(--green); }
+  .num-chip {
+    font-size:10px; padding:1px 7px; border-radius:8px;
+    background:var(--bg4); color:var(--text3); font-weight:600; flex-shrink:0;
+  }
 </style>
 {% endblock %}
 
@@ -115,6 +128,18 @@
 
   <h1>Dashboard supervisor</h1>
   <p class="sub">Estado de agentes y conversaciones asignadas</p>
+
+  {% if numeros|length > 1 %}
+  <div class="num-tabs">
+    <a href="?" class="num-tab {% if not numero_sel %}active{% endif %}">Todos</a>
+    {% for n in numeros %}
+    <a href="?{% if agente_sel %}agente={{ agente_sel.pk }}&{% endif %}numero={{ n.pk }}"
+       class="num-tab {% if numero_sel.pk == n.pk %}active{% endif %}">
+      {{ n.nombre }}
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
 
   {% if messages %}
   {% for m in messages %}
@@ -205,6 +230,7 @@
         <div class="conv-name">{{ conv.get_display_name }}</div>
         <div class="conv-tel">{{ conv.telefono }}</div>
       </div>
+      {% if not numero_sel %}<span class="num-chip">{{ conv.numero.nombre }}</span>{% endif %}
       {% if conv.bot_n8n_activo %}
       <span class="estado-chip chip-bot">🤖 Bot</span>
       {% elif conv.estado == 'pendiente' %}
@@ -215,7 +241,7 @@
       {% if conv.ultimo_mensaje_at %}
       <span class="conv-time">{{ conv.ultimo_mensaje_at|date:"d/m H:i" }}</span>
       {% endif %}
-      <a href="{% url 'whatsapp:inbox' %}?conv={{ conv.pk }}" class="conv-link" target="_blank">Ver →</a>
+      <a href="{% url 'whatsapp:inbox' %}?conv={{ conv.pk }}&numero={{ conv.numero.pk }}" class="conv-link" target="_blank">Ver →</a>
     </div>
     {% empty %}
     <div style="padding:24px 20px; text-align:center; color:var(--text3); font-size:13px;">
@@ -238,10 +264,11 @@
         <div class="conv-name">{{ conv.get_display_name }}</div>
         <div class="conv-tel">{{ conv.telefono }}</div>
       </div>
+      {% if not numero_sel %}<span class="num-chip">{{ conv.numero.nombre }}</span>{% endif %}
       {% if conv.ultimo_mensaje_at %}
       <span class="conv-time">{{ conv.ultimo_mensaje_at|date:"d/m H:i" }}</span>
       {% endif %}
-      <a href="{% url 'whatsapp:inbox' %}?conv={{ conv.pk }}" class="conv-link" target="_blank">Ver →</a>
+      <a href="{% url 'whatsapp:inbox' %}?conv={{ conv.pk }}&numero={{ conv.numero.pk }}" class="conv-link" target="_blank">Ver →</a>
     </div>
     {% endfor %}
   </div>

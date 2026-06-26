@@ -268,22 +268,27 @@ class DashboardSupervisorView(LoginRequiredMixin, View):
         from django.db.models import Count, Q as Qm
         User = get_user_model()
 
+        numeros = NumeroWhatsApp.objects.filter(activo=True).order_by('orden', 'nombre')
+        numero_sel_id = request.GET.get('numero')
+        numero_sel = numeros.filter(pk=numero_sel_id).first() if numero_sel_id else None
+        numero_filter = {'conversaciones__numero': numero_sel} if numero_sel else {}
+        conv_filter = {'numero': numero_sel} if numero_sel else {}
+
         agentes = (
             User.objects.filter(rol=User.ROL_AGENTE)
             .annotate(
-                total=Count('conversaciones', filter=Qm(conversaciones__archivada=False)),
-                bot=Count('conversaciones', filter=Qm(conversaciones__archivada=False, conversaciones__bot_n8n_activo=True)),
-                pendiente=Count('conversaciones', filter=Qm(conversaciones__archivada=False, conversaciones__estado='pendiente')),
-                abierta=Count('conversaciones', filter=Qm(conversaciones__archivada=False, conversaciones__estado='abierta', conversaciones__bot_n8n_activo=False)),
+                total=Count('conversaciones', filter=Qm(conversaciones__archivada=False, **{f'conversaciones__numero': numero_sel} if numero_sel else {})),
+                bot=Count('conversaciones', filter=Qm(conversaciones__archivada=False, conversaciones__bot_n8n_activo=True, **{f'conversaciones__numero': numero_sel} if numero_sel else {})),
+                pendiente=Count('conversaciones', filter=Qm(conversaciones__archivada=False, conversaciones__estado='pendiente', **{f'conversaciones__numero': numero_sel} if numero_sel else {})),
+                abierta=Count('conversaciones', filter=Qm(conversaciones__archivada=False, conversaciones__estado='abierta', conversaciones__bot_n8n_activo=False, **{f'conversaciones__numero': numero_sel} if numero_sel else {})),
             )
             .order_by('-en_turno', 'username')
         )
 
         sin_asignar = Conversacion.objects.filter(
-            agente__isnull=True, archivada=False
-        ).order_by('-ultimo_mensaje_at')[:20]
+            agente__isnull=True, archivada=False, **conv_filter
+        ).order_by('-ultimo_mensaje_at').select_related('numero')[:20]
 
-        # Detalle de convs por agente (para el panel expandible)
         agente_pk = request.GET.get('agente')
         convs_agente = []
         agente_sel = None
@@ -291,8 +296,8 @@ class DashboardSupervisorView(LoginRequiredMixin, View):
             try:
                 agente_sel = User.objects.get(pk=agente_pk, rol=User.ROL_AGENTE)
                 convs_agente = Conversacion.objects.filter(
-                    agente=agente_sel, archivada=False
-                ).order_by('-ultimo_mensaje_at').select_related('contacto')[:50]
+                    agente=agente_sel, archivada=False, **conv_filter
+                ).order_by('-ultimo_mensaje_at').select_related('contacto', 'numero')[:50]
             except User.DoesNotExist:
                 pass
 
@@ -302,6 +307,8 @@ class DashboardSupervisorView(LoginRequiredMixin, View):
             'agente_sel': agente_sel,
             'convs_agente': convs_agente,
             'todos_agentes': User.objects.filter(rol=User.ROL_AGENTE, is_active=True).order_by('username'),
+            'numeros': numeros,
+            'numero_sel': numero_sel,
         })
 
     def post(self, request):
@@ -344,20 +351,23 @@ class DashboardAgenteView(LoginRequiredMixin, View):
     template_name = 'whatsapp/dashboard_agente.html'
 
     def get(self, request):
-        from django.db.models import Q as Qm
+        numeros = _numeros_visibles(request.user)
+        numero_sel_id = request.GET.get('numero')
+        numero_sel = numeros.filter(pk=numero_sel_id).first() if numero_sel_id else None
+        conv_filter = {'numero': numero_sel} if numero_sel else {'numero__in': numeros}
+
         convs = Conversacion.objects.filter(
-            agente=request.user, archivada=False
-        ).order_by('-ultimo_mensaje_at').select_related('contacto')
+            agente=request.user, archivada=False, **conv_filter
+        ).order_by('-ultimo_mensaje_at').select_related('contacto', 'numero')
 
         bot_activo = convs.filter(bot_n8n_activo=True)
         pendientes = convs.filter(estado=Conversacion.ESTADO_PENDIENTE)
-        abiertas = convs.filter(
-            estado=Conversacion.ESTADO_ABIERTA, bot_n8n_activo=False
-        )
+        abiertas = convs.filter(estado=Conversacion.ESTADO_ABIERTA, bot_n8n_activo=False)
         cerradas_hoy = Conversacion.objects.filter(
             agente=request.user,
             estado=Conversacion.ESTADO_CERRADA,
             ultimo_mensaje_at__date=timezone.now().date(),
+            **conv_filter,
         ).count()
 
         return render(request, self.template_name, {
@@ -366,6 +376,8 @@ class DashboardAgenteView(LoginRequiredMixin, View):
             'abiertas': abiertas,
             'cerradas_hoy': cerradas_hoy,
             'total': convs.count(),
+            'numeros': numeros,
+            'numero_sel': numero_sel,
         })
 
 

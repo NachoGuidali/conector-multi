@@ -70,6 +70,19 @@
 
   .empty-section { padding: 24px 20px; text-align: center; color: var(--text3); font-size: 13px; }
 
+  .num-tabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:20px; }
+  .num-tab {
+    padding:5px 14px; border-radius:20px; font-size:12px; font-weight:600;
+    border:1px solid var(--border); background:var(--bg2);
+    color:var(--text2); text-decoration:none; transition:all .15s;
+  }
+  .num-tab:hover { border-color:var(--green); color:var(--green); }
+  .num-tab.active { background:var(--green); color:#000; border-color:var(--green); }
+  .num-chip {
+    font-size:10px; padding:1px 7px; border-radius:8px;
+    background:var(--bg4); color:var(--text3); font-weight:600; flex-shrink:0;
+  }
+
   .inbox-link {
     display: inline-flex; align-items: center; gap: 8px;
     padding: 9px 18px; border-radius: var(--radius-sm);
@@ -87,6 +100,17 @@
     <h1>Hola, {{ request.user.get_full_name|default:request.user.username }} 👋</h1>
     <p>Tus conversaciones asignadas</p>
   </div>
+
+  {% if numeros|length > 1 %}
+  <div class="num-tabs">
+    <a href="?" class="num-tab {% if not numero_sel %}active{% endif %}">Todos</a>
+    {% for n in numeros %}
+    <a href="?numero={{ n.pk }}" class="num-tab {% if numero_sel.pk == n.pk %}active{% endif %}">
+      {{ n.nombre }}
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
 
   <!-- Stats -->
   <div class="stats-row">
@@ -125,12 +149,13 @@
       <span class="section-badge badge-pendiente">{{ pendientes.count }} LISTO</span>
     </div>
     {% for conv in pendientes %}
-    <a href="{% url 'whatsapp:inbox' %}?conv={{ conv.pk }}" class="conv-row">
+    <a href="{% url 'whatsapp:inbox' %}?conv={{ conv.pk }}&numero={{ conv.numero.pk }}" class="conv-row">
       <div class="conv-avatar">{{ conv.get_display_name|slice:":1"|upper }}</div>
       <div class="conv-info">
         <div class="conv-name">{{ conv.get_display_name }}</div>
         <div class="conv-tel">{{ conv.telefono }}</div>
       </div>
+      {% if not numero_sel %}<span class="num-chip">{{ conv.numero.nombre }}</span>{% endif %}
       {% if conv.ultimo_mensaje_at %}
       <div class="conv-time">{{ conv.ultimo_mensaje_at|date:"d/m H:i" }}</div>
       {% endif %}
@@ -151,12 +176,13 @@
       <span class="section-badge badge-abierta">{{ abiertas.count }}</span>
     </div>
     {% for conv in abiertas %}
-    <a href="{% url 'whatsapp:inbox' %}?conv={{ conv.pk }}" class="conv-row">
+    <a href="{% url 'whatsapp:inbox' %}?conv={{ conv.pk }}&numero={{ conv.numero.pk }}" class="conv-row">
       <div class="conv-avatar">{{ conv.get_display_name|slice:":1"|upper }}</div>
       <div class="conv-info">
         <div class="conv-name">{{ conv.get_display_name }}</div>
         <div class="conv-tel">{{ conv.telefono }}</div>
       </div>
+      {% if not numero_sel %}<span class="num-chip">{{ conv.numero.nombre }}</span>{% endif %}
       {% if conv.ultimo_mensaje_at %}
       <div class="conv-time">{{ conv.ultimo_mensaje_at|date:"d/m H:i" }}</div>
       {% endif %}
@@ -177,12 +203,13 @@
       <span class="section-badge badge-bot">{{ bot_activo.count }}</span>
     </div>
     {% for conv in bot_activo %}
-    <a href="{% url 'whatsapp:inbox' %}?conv={{ conv.pk }}" class="conv-row">
+    <a href="{% url 'whatsapp:inbox' %}?conv={{ conv.pk }}&numero={{ conv.numero.pk }}" class="conv-row">
       <div class="conv-avatar" style="font-size:18px;">🤖</div>
       <div class="conv-info">
         <div class="conv-name">{{ conv.get_display_name }}</div>
         <div class="conv-tel">{{ conv.telefono }}</div>
       </div>
+      {% if not numero_sel %}<span class="num-chip">{{ conv.numero.nombre }}</span>{% endif %}
       {% if conv.ultimo_mensaje_at %}
       <div class="conv-time">{{ conv.ultimo_mensaje_at|date:"d/m H:i" }}</div>
       {% endif %}
