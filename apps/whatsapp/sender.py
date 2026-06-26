@@ -211,7 +211,8 @@ class EvolutionClient:
 
     def setup_instance_webhook(self, webhook_url: str) -> bool:
         url = self._url(f'/webhook/set/{self._instance()}')
-        webhook_token = self.numero.webhook_token or ''
+        from django.conf import settings
+        webhook_token = self.numero.webhook_token or getattr(settings, 'WHATSAPP_WEBHOOK_TOKEN', '')
         payload = {'webhook': {
             'enabled': True, 'url': webhook_url, 'webhook_by_events': False, 'webhook_base64': False,
             'events': ['MESSAGES_UPSERT', 'MESSAGES_UPDATE', 'CONNECTION_UPDATE', 'QRCODE_UPDATED'],

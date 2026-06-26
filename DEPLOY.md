@@ -247,12 +247,10 @@ server {
     listen 80;
     server_name spwap.supregsolutions.com;
 
-    # Para que Certbot pueda validar el dominio
     location /.well-known/acme-challenge/ {
         root /var/www/html;
     }
 
-    # Redirigir todo lo demás a HTTPS
     location / {
         return 301 https://$host$request_uri;
     }
@@ -266,14 +264,11 @@ server {
 
     client_max_body_size 20M;
 
-    location /static/ {
-        alias /opt/spwap/staticfiles/;
-        expires 30d;
-        add_header Cache-Control "public, immutable";
-    }
+    # Estáticos: Whitenoise los sirve desde Gunicorn — no hace falta bloque /static/ aquí.
 
+    # Media: bind mount .:/app expone /app/media como /opt/conector-multi/media/ en el host
     location /media/ {
-        alias /opt/spwap/media/;
+        alias /opt/conector-multi/media/;
         expires 7d;
     }
 

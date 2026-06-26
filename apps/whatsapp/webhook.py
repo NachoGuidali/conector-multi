@@ -5,10 +5,12 @@ logger = logging.getLogger('apps.whatsapp')
 
 
 def verify_webhook_token(token: str, configured_token: str) -> bool:
-    if not configured_token:
+    from django.conf import settings
+    effective_token = configured_token or getattr(settings, 'WHATSAPP_WEBHOOK_TOKEN', '')
+    if not effective_token:
         logger.warning('Webhook rejected — WHATSAPP_WEBHOOK_TOKEN not configured')
         return False
-    return token == configured_token
+    return token == effective_token
 
 
 def parse_incoming_webhook(payload: dict, numero) -> list:
