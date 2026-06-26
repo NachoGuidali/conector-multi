@@ -780,7 +780,10 @@ class NumeroCreateView(SupervisorRequiredMixin, View):
         webhook_url = request.build_absolute_uri(
             reverse('whatsapp:webhook', kwargs={'instance_name': numero.instance_name})
         )
+        import time
         client.ensure_instance_exists()
+        client.trigger_connect()
+        time.sleep(3)
         client.setup_instance_webhook(webhook_url)
         messages.success(request, f'Número "{numero.nombre}" creado. Escaneá el QR para conectarlo.')
         return redirect('whatsapp:numero_list')
