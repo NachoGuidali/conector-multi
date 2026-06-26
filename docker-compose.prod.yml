@@ -1,0 +1,19 @@
+version: '3.9'
+
+# Override de producción para spwap.supregsolutions.com
+# Convive en el mismo servidor que ras.supregsolutions.com (otro proyecto, otro stack
+# Docker) — por eso usa puertos distintos: 8006/8086 en vez de 8004/8084.
+# Uso: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+
+services:
+
+  web:
+    ports:
+      - "127.0.0.1:8006:8000"   # Nginx proxy → 127.0.0.1:8006
+
+  evolution-api:
+    ports:
+      - "127.0.0.1:8086:8080"
+    environment:
+      - SERVER_URL=https://spwap.supregsolutions.com
+      - AUTHENTICATION_API_KEY=${EVOLUTION_API_KEY}

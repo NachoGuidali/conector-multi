@@ -1,0 +1,169 @@
+{% extends "base/base.html" %}
+{% block title %}Números de WhatsApp — SPwap{% endblock %}
+{% block nav_config %}active{% endblock %}
+
+{% block extra_css %}
+<style>
+  .page { flex: 1; padding: 32px; overflow-y: auto; }
+  .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
+  .page-header h1 { font-size: 18px; font-weight: 600; }
+  .btn {
+    padding: 9px 20px; border-radius: var(--radius-sm);
+    font-size: 13px; font-weight: 600; font-family: inherit;
+    cursor: pointer; border: none; transition: opacity .15s;
+    text-decoration: none; display: inline-flex; align-items: center; gap: 6px;
+  }
+  .btn-green { background: var(--green); color: #000; }
+  .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text2); }
+  .btn-sm { padding: 6px 12px; font-size: 12px; }
+  .btn:hover { opacity: .85; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+  .card {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 20px;
+  }
+  .card-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+  .card-title { font-size: 15px; font-weight: 600; }
+  .card-sub { font-size: 12px; color: var(--text3); font-family: 'DM Mono', monospace; margin-top: 2px; }
+
+  .status-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 5px 10px; border-radius: 100px;
+    font-size: 12px; font-weight: 500;
+  }
+  .status-open { background: #064e3b; color: #6ee7b7; }
+  .status-close { background: #450a0a; color: #fca5a5; }
+  .status-connecting { background: #451a03; color: #fdba74; }
+  .status-error { background: #1f1f2e; color: var(--text3); }
+  .status-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+  .inactivo-badge { background: #1f1f2e; color: var(--text3); font-size: 11px; padding: 3px 8px; border-radius: 4px; }
+
+  .card-actions { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+
+  .qr-container {
+    display: flex; align-items: center; justify-content: center;
+    min-height: 220px; background: #fff;
+    border: 1px dashed var(--border); border-radius: var(--radius);
+    margin-top: 14px; padding: 12px;
+  }
+  .qr-container img { max-width: 200px; }
+  .qr-placeholder { text-align: center; color: var(--text3); font-size: 12px; }
+  .empty { text-align: center; padding: 60px 20px; color: var(--text3); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div class="page-header">
+    <h1>Números de WhatsApp</h1>
+    <a href="{% url 'whatsapp:numero_create' %}" class="btn btn-green">+ Conectar número</a>
+  </div>
+
+  {% if numeros %}
+  <div class="grid">
+    {% for numero in numeros %}
+    <div class="card" data-pk="{{ numero.pk }}">
+      <div class="card-top">
+        <div>
+          <div class="card-title">{{ numero.nombre }}</div>
+          <div class="card-sub">{{ numero.telefono|default:numero.instance_name }}</div>
+        </div>
+        {% if not numero.activo %}<span class="inactivo-badge">Inactivo</span>{% endif %}
+      </div>
+
+      <span class="status-badge status-{{ numero.estado_conexion }}" id="status-badge-{{ numero.pk }}">
+        <span class="status-dot"></span>
+        {% if numero.estado_conexion == 'open' %}Conectado
+        {% elif numero.estado_conexion == 'connecting' %}Conectando...
+        {% else %}Desconectado{% endif %}
+      </span>
+
+      <div class="card-actions">
+        <button class="btn btn-outline btn-sm" onclick="toggleQR({{ numero.pk }})">Ver QR</button>
+        <a href="{% url 'whatsapp:numero_update' numero.pk %}" class="btn btn-outline btn-sm">Editar</a>
+        <button class="btn btn-outline btn-sm" style="color:var(--red); border-color:var(--red);" onclick="logoutInstance({{ numero.pk }})">Desconectar</button>
+      </div>
+
+      <div class="qr-container" id="qr-container-{{ numero.pk }}" style="display:none;"></div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty">
+    <p>Todavía no conectaste ningún número de WhatsApp.</p>
+  </div>
+  {% endif %}
+</div>
+
+{% block extra_js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+const CSRF = '{{ csrf_token }}';
+const pollIntervals = {};
+
+function renderQR(container, qrCode) {
+  container.innerHTML = '';
+  const div = document.createElement('div');
+  container.appendChild(div);
+  new QRCode(div, {
+    text: qrCode, width: 200, height: 200,
+    colorDark: '#000000', colorLight: '#ffffff',
+    correctLevel: QRCode.CorrectLevel.L,
+  });
+}
+
+async function refreshQR(pk) {
+  const container = document.getElementById(`qr-container-${pk}`);
+  try {
+    const res = await fetch(`/whatsapp/numeros/${pk}/qr/?force=1`);
+    const data = await res.json();
+    if (data.connected) {
+      clearInterval(pollIntervals[pk]);
+      container.innerHTML = '<div class="qr-placeholder" style="color:var(--green);">✓ WhatsApp conectado</div>';
+      updateStatusBadge(pk, 'open');
+    } else if (data.qr_code) {
+      renderQR(container, data.qr_code);
+    } else if (data.qr_base64) {
+      const src = data.qr_base64.startsWith('data:') ? data.qr_base64 : `data:image/png;base64,${data.qr_base64}`;
+      container.innerHTML = `<img src="${src}" alt="QR">`;
+    } else {
+      container.innerHTML = '<div class="qr-placeholder">Generando QR...</div>';
+    }
+  } catch (e) {
+    container.innerHTML = '<div class="qr-placeholder" style="color:var(--red);">Error de conexión</div>';
+  }
+}
+
+function updateStatusBadge(pk, state) {
+  const badge = document.getElementById(`status-badge-${pk}`);
+  const labels = { open: 'Conectado', close: 'Desconectado', connecting: 'Conectando...', error: 'Error' };
+  if (badge) badge.outerHTML = `<span class="status-badge status-${state}" id="status-badge-${pk}"><span class="status-dot"></span>${labels[state] || state}</span>`;
+}
+
+function toggleQR(pk) {
+  const container = document.getElementById(`qr-container-${pk}`);
+  const visible = container.style.display !== 'none';
+  if (visible) {
+    container.style.display = 'none';
+    clearInterval(pollIntervals[pk]);
+    return;
+  }
+  container.style.display = 'flex';
+  container.innerHTML = '<div class="qr-placeholder">Cargando QR...</div>';
+  refreshQR(pk);
+  pollIntervals[pk] = setInterval(() => refreshQR(pk), 5000);
+}
+
+async function logoutInstance(pk) {
+  if (!confirm('¿Desconectar este número de WhatsApp?')) return;
+  await fetch(`/whatsapp/numeros/${pk}/logout/`, {
+    method: 'POST',
+    headers: {'X-CSRFToken': CSRF, 'Content-Type': 'application/x-www-form-urlencoded'},
+    body: 'action=logout',
+  });
+  location.reload();
+}
+</script>
+{% endblock %}
+{% endblock %}
